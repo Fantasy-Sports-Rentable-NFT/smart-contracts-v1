@@ -2,13 +2,15 @@
 pragma solidity ^0.8.17;
 
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 import "./interfaces/IERC4907.sol";
 import "./interfaces/IOverCollateralizedAuction.sol";
 
 error InvalidCaller();
 error PlayerMaxCap(uint256 capAmount);
+error CannotAuctionRentedNFT();
 
-contract ERC4907 is ERC721, IERC4907 {
+contract ERC4907 is ERC721, IERC4907, ERC721URIStorage {
     address admin;
     IOverCollateralizedAuction public auction;
     uint256 public currTokenId;
@@ -116,11 +118,51 @@ contract ERC4907 is ERC721, IERC4907 {
         }
     }
 
+    function _burn(uint256 tokenId)
+        internal
+        override(ERC721, ERC721URIStorage)
+    {
+        super._burn(tokenId);
+    }
+
+    function tokenURI(uint256 tokenId)
+        public
+        view
+        override(ERC721, ERC721URIStorage)
+        returns (string memory)
+    {
+        return super.tokenURI(tokenId);
+    }
+
     function mint(string calldata identifier) external {
         if (msg.sender != admin) revert InvalidCaller();
         if (players[identifier].maxMintable <= players[identifier].countMinted)
             revert PlayerMaxCap(players[identifier].maxMintable);
         _mint(msg.sender, ++currTokenId);
         players[identifier].countMinted++;
+    }
+
+    function createAuction(
+        uint256 tokenId,
+        uint32 delayToStart,
+        uint32 bidPeriod,
+        uint32 revealPeriod,
+        uint96 reservePrice
+    ) external {
+        address owner = ownerOf(tokenId);
+        if (msg.sender != owner) revert InvalidCaller();
+        if (
+            _users[tokenId].user != address(0) &&
+            _users[tokenId].expires < block.timestamp + 1
+        ) revert CannotAuctionRentedNFT();
+        // add check if already up for auction in auction contract?
+        auction.createAuction(
+            address(this),
+            tokenId,
+            uint32(block.timestamp) + delayToStart,
+            bidPeriod,
+            revealPeriod,
+            reservePrice
+        );
     }
 }
