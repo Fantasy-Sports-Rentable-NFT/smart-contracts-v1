@@ -165,4 +165,23 @@ contract ERC4907 is ERC721, IERC4907, ERC721URIStorage {
             reservePrice
         );
     }
+
+    function getPlayerData(string calldata identifier)
+        external
+        view
+        returns (
+            uint32 countMinted,
+            uint32 maxMintable,
+            uint16[] memory percentStarted,
+            uint16[] memory percentOwned,
+            uint256[] memory auctionResults
+        )
+    {
+        PlayerData memory playerData = players[identifier];
+        countMinted = playerData.countMinted;
+        maxMintable = playerData.maxMintable;
+        percentStarted = playerData.percentStarted;
+        percentOwned = playerData.percentOwned;
+        auctionResults = playerData.auctionResults;
+    }
 }
